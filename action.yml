@@ -1,0 +1,76 @@
+name: 'Install Steam CMD'
+description: 'GitHub Action to install SteamCMD on a runner (supports Ubuntu and Windows)'
+
+inputs:
+  update:
+    description: 'Update SteamCMD after installation'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'composite'
+  steps:
+
+    - name: 'Windows: Create SteamCMD directory'
+      if: ${{ runner.os == 'Windows' }}
+      run: |
+        New-Item -ItemType Directory -Path steamcmd -Force
+      shell: pwsh
+
+    - name: 'Windows: Download and extract SteamCMD'
+      if: ${{ runner.os == 'Windows' }}
+      run: |
+        Invoke-WebRequest -Uri https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip -OutFile steamcmd.zip
+        Expand-Archive -Path steamcmd.zip -DestinationPath steamcmd -Force
+      shell: pwsh
+
+    - name: 'Windows: Export SteamCMD to PATH'
+      if: ${{ runner.os == 'Windows' }}
+      run: |
+        Add-Content -Path $GITHUB_ENV -Value "STEAMCMD_PATH=$PWD\steamcmd"
+        Add-Content -Path $GITHUB_ENV -Value "PATH=$STEAMCMD_PATH;$env:PATH"
+        Write-Host "SteamCMD installation complete and added to PATH."
+      shell: pwsh
+
+    - name: 'Windows: Update SteamCMD (if requested)'
+      if: ${{ runner.os == 'Windows' && inputs.update == 'true' }}
+      run: |
+        .\steamcmd\steamcmd.exe +quit
+      shell: pwsh
+
+    - name: 'Ubuntu: Install prerequisites'
+      if: ${{ runner.os == 'Linux' }}
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y lib32gcc-s1 software-properties-common wget
+      shell: bash
+
+    - name: 'Ubuntu: Add SteamCMD repository (if supported)'
+      if: ${{ runner.os == 'Linux' }}
+      run: |
+        sudo add-apt-repository -y multiverse || true
+        sudo apt-get update
+      shell: bash        
+
+    - name: 'Ubuntu: Install SteamCMD'
+      if: ${{ runner.os == 'Linux' }}
+      run: |
+        sudo apt-get install -y steamcmd || (
+          mkdir -p ~/steamcmd && cd ~/steamcmd
+          wget https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz
+          tar -xvzf steamcmd_linux.tar.gz
+        )
+      shell: bash
+
+    - name: 'Ubuntu: Export SteamCMD to PATH'
+      if: ${{ runner.os == 'Linux' }}
+      run: |
+        echo 'export PATH="$HOME/steamcmd:$PATH"' >> $GITHUB_ENV
+        echo "SteamCMD installation complete and added to PATH."
+      shell: bash
+
+    - name: 'Ubuntu: Update SteamCMD (if requested)'
+      if: ${{ runner.os == 'Linux' && inputs.update == 'true' }}
+      run: |
+        steamcmd +quit
+      shell: bash
